@@ -67,6 +67,21 @@
 
 // ---------------------------------------------------------------------------------------
 // COMPILE-TIME ERROR CHECKING OF DEFINE VALUES:
+extern volatile bool jog_z_up;
+extern volatile bool jog_z_down;
+extern volatile bool machine_in_motion;
+extern volatile unsigned long micros;
+extern volatile unsigned long millis;
+extern volatile uint16_t analogVal;
+extern volatile uint16_t analogSetVal;
+
+#define bit_get(p,m) ((p) & (m))
+#define bit_set(p,m) ((p) |= (m))
+#define bit_clear(p,m) ((p) &= ~(m))
+#define bit_flip(p,m) ((p) ^= (m))
+#define bit_write(c,p,m) (c ? bit_set(p,m) : bit_clear(p,m))
+#define BIT(x) (0x01 << (x))
+#define LONGBIT(x) ((unsigned long)0x00000001 << (x))
 
 #ifndef HOMING_CYCLE_0
   #error "Required HOMING_CYCLE_0 not defined."

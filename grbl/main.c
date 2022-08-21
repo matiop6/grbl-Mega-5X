@@ -52,8 +52,196 @@ unsigned char axis_name[N_AXIS]; // Global table of axis names
   uint8_t n_axis_report;
 #endif
 
+volatile unsigned long micros;
+volatile unsigned long millis;
+unsigned long millis_timer;
+
+unsigned long z_step_timer;
+unsigned long arc_stablization_timer;
+volatile int z_step_delay;
+
+// Value to store analog result
+volatile uint16_t analogVal;
+volatile uint16_t analogSetVal;
+
+void thc_update()
+{
+  if(ARC_OK_PIN & (1<<ARC_OK_BIT))
+  {
+    //We don't have an arc_ok signal
+    jog_z_up = false;
+    jog_z_down = false;
+    arc_stablization_timer = millis;
+  }
+  else
+  {
+    //We have an arc_ok signal!
+    //Out ADC input is 2:1 voltage divider so pre-divider is 0-10V and post divider is 0-5V. ADC resolution is 0-1024; Each ADC tick is 0.488 Volts pre-divider (AV+) at 1:50th scale!
+    //or 0.009 volts at scaled scale (0-10)
+    //Wait 3 secends for arc voltage to stabalize
+    if ((millis - arc_stablization_timer) > 3000)
+    {
+      if (analogSetVal > 30) //THC is turned on
+      {
+        if ((analogVal > (analogSetVal - 10)) && (analogVal < (analogSetVal + 10))) //We are within our ok range
+        {
+          jog_z_up = false;
+          jog_z_down = false;
+        }
+        else //We are not in range and need to deterimine direction needed to put us in range
+        {
+          if (analogVal > analogSetVal) //Torch is too high
+          {
+            jog_z_down = true;
+          }
+          else //Torch is too low
+          {
+            jog_z_up = true;
+          }
+        }
+      }
+    }
+  }
+}
+
+unsigned long cycle_frequency_from_feedrate(double feedrate)
+{
+  return ((1000.0f * 1000.0f) / (settings.steps_per_mm[Z_AXIS])) / feedrate;
+}
+ISR(ADC_vect){
+  // Must read low first
+  analogVal = ADCL | (ADCH << 8);
+  // Not needed because free-running mode is enabled.
+  // Set ADSC in ADCSRA (0x7A) to start another ADC conversion
+  // ADCSRA |= B01000000;
+}
+//Fires every 1/8 of a ms, 125uS
+ISR(TIMER2_OVF_vect){
+  if ((micros - z_step_timer) > z_step_delay)
+  {
+    if (jog_z_up)
+    {
+      //Dir
+      if (settings.dir_invert_mask & (1 << 2)) //Z dir is inverted
+      {
+        PORT(DIRECTION_PORT_2) |= (1 << DIRECTION_BIT_2);    // set Z dir high
+        _delay_us(10);
+      }
+      else
+      { 
+        PORT(DIRECTION_PORT_2) &= ~(1 << DIRECTION_BIT_2);    // set Z dir low
+        _delay_us(10);
+      }
+      //Step
+      PORT(STEP_PORT_2) |= (1 << STEP_BIT_2);     // set Z step high
+      _delay_us(10);
+      PORT(STEP_PORT_2) &= ~(1 << STEP_BIT_2);    // set Z step low
+      sys_position[Z_AXIS]++;
+    }
+    else if (jog_z_down)
+    {
+      if (settings.dir_invert_mask & (1 << 2)) //Z dir is inverted
+      {
+        //Dir
+        PORT(DIRECTION_PORT_2 &= ~(1 << DIRECTION_BIT_2);    // set Z dir high
+        _delay_us(10);
+      }
+      else
+      {
+        PORT(DIRECTION_PORT_2 |= (1 << DIRECTION_BIT_2);     // set Z dir low
+        _delay_us(10);
+      }
+      //Step
+       PORT(STEP_PORT_2) |= (1 << STEP_BIT_2);     // set Z step high
+      _delay_us(10);
+      PORT(STEP_PORT_2) &= ~(1 << STEP_BIT_2);    // set Z step low
+      sys_position[Z_AXIS]--;
+    }
+    z_step_timer = micros;
+  }
+
+  //Timing critical
+  if (millis_timer > 7) //8 cycles is one millisecond
+  {
+    if (machine_in_motion == true) thc_update(); //Once a millisecond, evaluate what the THC should be doing
+    millis_timer = 0;
+    millis++;
+  }
+  TCNT2 = 223;           //Reset Timer to 130 out of 255
+  TIFR2 = 0x00;          //Timer2 INT Flag Reg: Clear Timer Overflow Flag
+  micros += 125;
+  millis_timer++;
+}
+
+
+
 int main(void)
 {
+
+ arc_stablization_timer = 0;
+  /* Begin ADC Setup */
+  // clear ADLAR in ADMUX (0x7C) to right-adjust the result
+  // ADCL will contain lower 8 bits, ADCH upper 2 (in last two bits)
+  ADMUX &= 0b11011111;
+  // Set REFS1..0 in ADMUX (0x7C) to change reference voltage to the
+  // proper source (01)
+  ADMUX |= 0b01000000;
+  // Clear MUX3..0 in ADMUX (0x7C) in preparation for setting the analog
+  // input
+  ADMUX &= 0b11100000;
+  // Set MUX3..0 in ADMUX (0x7C) to read from AD8 (Internal temp)
+  // Do not set above 15! You will overrun other parts of ADMUX. A full
+  // list of possible inputs is available in Table 24-4 of the ATMega328
+  // datasheet
+  // ADMUX |= 8;
+  ADMUX |= 0b00000111; //MUX4..0 00111 Binary equivalent A15 pin
+  ADCSRB |= 0b00001000 //MUX5 - high (A15)
+
+  // Set ADEN in ADCSRA (0x7A) to enable the ADC.
+  // Note, this instruction takes 12 ADC clocks to execute
+  ADCSRA |= 0b10000000;
+  // Set ADATE in ADCSRA (0x7A) to enable auto-triggering.
+  ADCSRA |= 0b00100000;
+  // Clear ADTS2..0 in ADCSRB (0x7B) to set trigger mode to free running.
+  // This means that as soon as an ADC has finished, the next will be
+  // immediately started. 
+  ADCSRB &= 0b11111000; 
+  // Set the Prescaler to 128 (16000KHz/128 = 125KHz)
+  // Above 200KHz 10-bit results are not reliable.
+  ADCSRA |= 0b00000111;
+  // Set ADIE in ADCSRA (0x7A) to enable the ADC interrupt.
+  // Without this, the internal interrupt will not trigger.
+  ADCSRA |= 0b00001000;
+  // Enable global interrupts
+  // AVR macro included in <avr/interrupts.h>, which the Arduino IDE
+  // supplies by default.
+  sei();
+  // Set ADSC in ADCSRA (0x7A) to start the ADC conversion
+  ADCSRA |=0b01000000;
+  /* End ADC Setup */
+
+  //Setup Timer2 to fire every 1ms
+  TCCR2B = 0x00;        //Disbale Timer2 while we set it up
+  TCNT2  = 130;         //Reset Timer Count to 130 out of 255
+  TIFR2  = 0x00;        //Timer2 INT Flag Reg: Clear Timer Overflow Flag
+  TIMSK2 = 0x01;        //Timer2 INT Reg: Timer2 Overflow Interrupt Enable
+  TCCR2A = 0x00;        //Timer2 Control Reg A: Wave Gen Mode normal
+  TCCR2B = 0x05;        //Timer2 Control Reg B: Timer Prescaler set to 128
+  micros = 0;
+  millis = 0;
+  millis_timer = 0;
+
+  z_step_timer = 0;
+  z_step_delay = 0;
+
+  
+  ARC_OK_DDR &= ~(1<<ARC_OK_BIT); // Set input for Arc Ok
+  ARC_OK_PORT |= (1<<ARC_OK_BIT);  // Set internally pulled-up
+
+  //Start first ADC conversion
+  ADMUX = (ADMUX & 0xF0) | (0 & 0x0F);
+  ADCSRA |= (1<<ADSC);
+
   // Initialize system upon power-up.
   serial_init();   // Setup serial baud rate and interrupts
   settings_init(); // Load Grbl settings from EEPROM

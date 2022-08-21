@@ -74,6 +74,12 @@
   #define STEP_PORT(i) _STEP_PORT(i)
   #define STEP_PIN(i) _PIN(STEP_PORT_##i)
 
+  #define ARC_OK_DDR DDRE
+  #define ARC_OK_PORT PORTE
+  #define ARC_OK_BIT 4
+  #define ARC_OK_PIN PINE
+  
+
   // Define step direction output pins.
   #define DIRECTION_PORT_0 F
   #define DIRECTION_PORT_1 F
