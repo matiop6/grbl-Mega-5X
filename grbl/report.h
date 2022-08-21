@@ -134,6 +134,7 @@ void printDgState(uint8_t dg_state);
   void report_debug_string(char *line);
   void report_debug_int_8(uint8_t val, ...);
   void report_debug_int_16(uint16_t val, ...);
+  void report_realtime_debug();
 #endif
 
 #endif

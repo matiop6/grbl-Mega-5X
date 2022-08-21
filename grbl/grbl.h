@@ -70,8 +70,8 @@
 extern volatile bool jog_z_up;
 extern volatile bool jog_z_down;
 extern volatile bool machine_in_motion;
-extern volatile unsigned long micros;
-extern volatile unsigned long millis;
+extern volatile unsigned long my_micros;
+extern volatile unsigned long my_millis;
 extern volatile uint16_t analogVal;
 extern volatile uint16_t analogSetVal;
 

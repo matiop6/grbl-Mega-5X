@@ -219,6 +219,7 @@ int idx; // GBGB ???
 
 void st_wake_up()
 {
+  machine_in_motion = true;
   int idx;
 
   // Enable stepper drivers.
@@ -273,6 +274,7 @@ void st_wake_up()
 // Stepper shutdown
 void st_go_idle()
 {
+  machine_in_motion = false;
   // Disable Stepper Driver Interrupt. Allow Stepper Port Reset Interrupt to finish, if active.
   TIMSK1 &= ~(1<<OCIE1A); // Disable Timer1 interrupt
   TCCR1B = (TCCR1B & ~((1<<CS12) | (1<<CS11))) | (1<<CS10); // Reset clock to no prescaling.
@@ -287,7 +289,7 @@ void st_go_idle()
     pin_state = true; // Override. Disable steppers.
   }
   if (bit_istrue(settings.flags,BITFLAG_INVERT_ST_ENABLE)) { pin_state = !pin_state; } // Apply pin invert.
-  if (pin_state) {
+  if (pin_state) { //TODO check if is needed
     STEPPER_DISABLE_PORT(0) |= (1 << STEPPER_DISABLE_BIT(0));
     STEPPER_DISABLE_PORT(1) |= (1 << STEPPER_DISABLE_BIT(1));
     STEPPER_DISABLE_PORT(2) |= (1 << STEPPER_DISABLE_BIT(2));

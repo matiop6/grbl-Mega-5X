@@ -32,6 +32,19 @@ static char line[LINE_BUFFER_SIZE]; // Line to be executed. Zero-terminated.
 
 static void protocol_exec_rt_suspend();
 
+/* CRC-32C (iSCSI) polynomial in reversed bit order. */
+#define POLY 0x82f63b78
+uint32_t crc32c(uint32_t crc, const char *buf, size_t len)
+{
+  int k;
+  crc = ~crc;
+  while (len--) {
+      crc ^= *buf++;
+      for (k = 0; k < 8; k++)
+          crc = crc & 1 ? (crc >> 1) ^ POLY : crc >> 1;
+  }
+  return ~crc;
+}
 
 /*
   GRBL PRIMARY LOOP:
@@ -71,6 +84,9 @@ void protocol_main_loop()
 
   uint8_t line_flags = 0;
   uint8_t char_counter = 0;
+  uint32_t checksum_value = 0;
+  char checksum[8];
+  uint8_t checksum_counter = 0;
   uint8_t c;
   for (;;) {
 
@@ -78,7 +94,50 @@ void protocol_main_loop()
     // initial filtering by removing spaces and comments and capitalizing all letters.
     while((c = serial_read()) != SERIAL_NO_DATA) {
       if ((c == '\n') || (c == '\r')) { // End of line reached
+        for (int x = 0; x < char_counter; x++)
+        {
+          if (line[x] == '*')
+          {
+            line[x] = 0; //Remove * from line
+            //Fill checksum with checksum and remove checksum from line
+            for (int z = x+1; z < char_counter; z++)
+            {
+              checksum[checksum_counter] = line[z];
+              checksum_counter++;
+              line[z] = 0;
+            }
+            checksum[checksum_counter] = 0;
+            //Convert checksum to int value
+            //printPgmString(PSTR("Checksum: "));
+            //printString(checksum);
+            //printPgmString(PSTR("\r\n"));
+            checksum_value = (uint32_t)atol(checksum);
+            //printPgmString(PSTR("Checksum_value: \""));
+            //print_uint32_base10(checksum_value);
+            //printPgmString(PSTR("\"\r\n"));
+            //Nulify checksum and reset counter
+            for (int y = 0; y < checksum_counter; y++)
+            {
+              checksum[y]=0;
+            }
+            checksum_counter = 0;
 
+            uint32_t rx_checksum = crc32c(0, line, strlen(line));
+            //printPgmString(PSTR("rx_checksum: "));
+            //print_uint32_base10(rx_checksum);
+            //printPgmString(PSTR("\r\n"));
+            if (checksum_value != rx_checksum)
+            {
+              //printPgmString(PSTR("Checksum_value: \""));
+              //for (int a = 0; a < strlen(line); a++) serial_write(line[a]);
+              //printPgmString(PSTR("\"\r\n"));
+              printPgmString(PSTR("[CHECKSUM_FAILURE]\r\n"));
+              for (int j = 0; j < char_counter; j++) line[j] = 0; //Nullify 
+              char_counter = 0;
+            }
+            break;
+          }
+        }
         protocol_execute_realtime(); // Runtime command check point.
         if (sys.abort) { return; } // Bail to calling function upon system abort
 
@@ -93,7 +152,7 @@ void protocol_main_loop()
           report_status_message(STATUS_OVERFLOW);
         } else if (line[0] == 0) {
           // Empty or comment line. For syncing purposes.
-          report_status_message(STATUS_OK);
+          //report_status_message(STATUS_OK);
         } else if (line[0] == '$') {
           // Grbl '$' system command
           report_status_message(system_execute_line(line));
@@ -238,7 +297,7 @@ void protocol_exec_rt_system()
         // the user and a GUI time to do what is needed before resetting, like killing the
         // incoming stream. The same could be said about soft limits. While the position is not
         // lost, continued streaming could cause a serious crash if by chance it gets executed.
-        if (sys_rt_exec_state & EXEC_STATUS_REPORT) {
+        if (sys_rt_exec_state & EXEC_STATUS_REPORT) { //TODO test
           report_realtime_status();
           system_clear_exec_state_flag(EXEC_STATUS_REPORT);
         }
@@ -490,6 +549,13 @@ void protocol_exec_rt_system()
       }
     }
   }
+
+  #ifdef DEBUG
+    if (sys_rt_exec_debug) {
+      report_realtime_debug();
+      sys_rt_exec_debug = 0;
+    }
+  #endif
 
   // Reload step segment buffer
   if (sys.state & (STATE_CYCLE | STATE_HOLD | STATE_SAFETY_DOOR | STATE_HOMING | STATE_SLEEP| STATE_JOG)) {

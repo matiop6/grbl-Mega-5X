@@ -52,8 +52,8 @@ unsigned char axis_name[N_AXIS]; // Global table of axis names
   uint8_t n_axis_report;
 #endif
 
-volatile unsigned long micros;
-volatile unsigned long millis;
+volatile unsigned long my_micros;
+volatile unsigned long my_millis;
 unsigned long millis_timer;
 
 unsigned long z_step_timer;
@@ -71,7 +71,7 @@ void thc_update()
     //We don't have an arc_ok signal
     jog_z_up = false;
     jog_z_down = false;
-    arc_stablization_timer = millis;
+    arc_stablization_timer = my_millis;
   }
   else
   {
@@ -79,7 +79,7 @@ void thc_update()
     //Out ADC input is 2:1 voltage divider so pre-divider is 0-10V and post divider is 0-5V. ADC resolution is 0-1024; Each ADC tick is 0.488 Volts pre-divider (AV+) at 1:50th scale!
     //or 0.009 volts at scaled scale (0-10)
     //Wait 3 secends for arc voltage to stabalize
-    if ((millis - arc_stablization_timer) > 3000)
+    if ((my_millis - arc_stablization_timer) > 3000)
     {
       if (analogSetVal > 30) //THC is turned on
       {
@@ -106,7 +106,7 @@ void thc_update()
 
 unsigned long cycle_frequency_from_feedrate(double feedrate)
 {
-  return ((1000.0f * 1000.0f) / (settings.steps_per_mm[Z_AXIS])) / feedrate;
+  return ((1000.0f * 1000.0f) / (settings.steps_per_mm[AXIS_3])) / feedrate;
 }
 ISR(ADC_vect){
   // Must read low first
@@ -117,47 +117,47 @@ ISR(ADC_vect){
 }
 //Fires every 1/8 of a ms, 125uS
 ISR(TIMER2_OVF_vect){
-  if ((micros - z_step_timer) > z_step_delay)
+  if ((my_micros - z_step_timer) > z_step_delay)
   {
     if (jog_z_up)
     {
       //Dir
       if (settings.dir_invert_mask & (1 << 2)) //Z dir is inverted
       {
-        PORT(DIRECTION_PORT_2) |= (1 << DIRECTION_BIT_2);    // set Z dir high
+        DIRECTION_PORT(2) |= (1 << DIRECTION_BIT_2);    // set Z dir high
         _delay_us(10);
       }
       else
       { 
-        PORT(DIRECTION_PORT_2) &= ~(1 << DIRECTION_BIT_2);    // set Z dir low
+        DIRECTION_PORT(2) &= ~(1 << DIRECTION_BIT_2);    // set Z dir low
         _delay_us(10);
       }
       //Step
-      PORT(STEP_PORT_2) |= (1 << STEP_BIT_2);     // set Z step high
+      STEP_PORT(2) |= (1 << STEP_BIT_2);     // set Z step high
       _delay_us(10);
-      PORT(STEP_PORT_2) &= ~(1 << STEP_BIT_2);    // set Z step low
-      sys_position[Z_AXIS]++;
+      STEP_PORT(2) &= ~(1 << STEP_BIT_2);    // set Z step low
+      sys_position[AXIS_3]++;
     }
     else if (jog_z_down)
     {
       if (settings.dir_invert_mask & (1 << 2)) //Z dir is inverted
       {
         //Dir
-        PORT(DIRECTION_PORT_2 &= ~(1 << DIRECTION_BIT_2);    // set Z dir high
+        DIRECTION_PORT(2) &= ~(1 << DIRECTION_BIT_2);    // set Z dir high
         _delay_us(10);
       }
       else
       {
-        PORT(DIRECTION_PORT_2 |= (1 << DIRECTION_BIT_2);     // set Z dir low
+        DIRECTION_PORT(2) |= (1 << DIRECTION_BIT_2);     // set Z dir low
         _delay_us(10);
       }
       //Step
-       PORT(STEP_PORT_2) |= (1 << STEP_BIT_2);     // set Z step high
+       STEP_PORT(2) |= (1 << STEP_BIT_2);     // set Z step high
       _delay_us(10);
-      PORT(STEP_PORT_2) &= ~(1 << STEP_BIT_2);    // set Z step low
-      sys_position[Z_AXIS]--;
+      STEP_PORT(2) &= ~(1 << STEP_BIT_2);    // set Z step low
+      sys_position[AXIS_3]--;
     }
-    z_step_timer = micros;
+    z_step_timer = my_micros;
   }
 
   //Timing critical
@@ -165,11 +165,11 @@ ISR(TIMER2_OVF_vect){
   {
     if (machine_in_motion == true) thc_update(); //Once a millisecond, evaluate what the THC should be doing
     millis_timer = 0;
-    millis++;
+    my_millis++;
   }
   TCNT2 = 223;           //Reset Timer to 130 out of 255
   TIFR2 = 0x00;          //Timer2 INT Flag Reg: Clear Timer Overflow Flag
-  micros += 125;
+  my_micros += 125;
   millis_timer++;
 }
 
@@ -195,7 +195,7 @@ int main(void)
   // datasheet
   // ADMUX |= 8;
   ADMUX |= 0b00000111; //MUX4..0 00111 Binary equivalent A15 pin
-  ADCSRB |= 0b00001000 //MUX5 - high (A15)
+  ADCSRB |= 0b00001000; //MUX5 - high (A15)
 
   // Set ADEN in ADCSRA (0x7A) to enable the ADC.
   // Note, this instruction takes 12 ADC clocks to execute
@@ -227,8 +227,8 @@ int main(void)
   TIMSK2 = 0x01;        //Timer2 INT Reg: Timer2 Overflow Interrupt Enable
   TCCR2A = 0x00;        //Timer2 Control Reg A: Wave Gen Mode normal
   TCCR2B = 0x05;        //Timer2 Control Reg B: Timer Prescaler set to 128
-  micros = 0;
-  millis = 0;
+  my_micros = 0;
+  my_millis = 0;
   millis_timer = 0;
 
   z_step_timer = 0;
