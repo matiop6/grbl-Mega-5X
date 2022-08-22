@@ -260,16 +260,16 @@
   #define PROBE_DDR       DDRK
   #define PROBE_PIN       PINK
   #define PROBE_PORT      PORTK
-  #define PROBE_BIT       7  // MEGA2560 Analog Pin 15
+  #define PROBE_BIT       6  // MEGA2560 Analog Pin 14
   #define PROBE_MASK      (1<<PROBE_BIT)
 
   #ifdef USE_ANALOG_INPUT
     // Define Analog input
-    #define ANALOG_INPUT_DDR_0   DDRK
-    #define ANALOG_INPUT_PIN_0   PINK
-    #define ANALOG_INPUT_PORT_0  PORTK
-    #define ANALOG_INPUT_BIT_0   6 // MEGA2560 Analog Pin 14
-    #define ANALOG_INPUT_MASK_0  (1<<ANALOG_INPUT_BIT_0)
+//     #define ANALOG_INPUT_DDR_0   DDRK
+//     #define ANALOG_INPUT_PIN_0   PINK
+//     #define ANALOG_INPUT_PORT_0  PORTK
+//     #define ANALOG_INPUT_BIT_0   6 // MEGA2560 Analog Pin 14
+//     #define ANALOG_INPUT_MASK_0  (1<<ANALOG_INPUT_BIT_0)
     #define ANALOG_INPUT_DDR_1   DDRK
     #define ANALOG_INPUT_PIN_1   PINK
     #define ANALOG_INPUT_PORT_1  PORTK

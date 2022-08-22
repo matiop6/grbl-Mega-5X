@@ -239,7 +239,6 @@ int main(void)
   ARC_OK_PORT |= (1<<ARC_OK_BIT);  // Set internally pulled-up
 
   //Start first ADC conversion
-  ADMUX = (ADMUX & 0xF0) | (0 & 0x0F);
   ADCSRA |= (1<<ADSC);
 
   // Initialize system upon power-up.
