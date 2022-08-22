@@ -189,7 +189,9 @@ void report_status_message(uint8_t status_code)
 {
   switch(status_code) {
     case STATUS_OK: // STATUS_OK
-      printPgmString(PSTR("ok\r\n")); break;
+      //printPgmString(PSTR("ok_to_send\n\r"));
+      serial_write('>');
+      break; //Instead of writing 4 charactors "ok\n\r", lets just write on and pick it off the line concatination string to lower the chances of the ok protocal breaking down mid cut
     default:
       printPgmString(PSTR("error:"));
       print_uint8_base10(status_code);
