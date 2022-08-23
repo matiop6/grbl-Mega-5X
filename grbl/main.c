@@ -712,6 +712,8 @@ int main(void)
 
     // Print welcome message. Indicates an initialization has occured at power-up or with a reset.
     report_init_message();
+    
+    TORCH_ON_PORT &= ~(1 << TORCH_ON_BIT); //Set torch pin off
 
     // Start Grbl main loop. Processes program inputs and executes them.
     protocol_main_loop();

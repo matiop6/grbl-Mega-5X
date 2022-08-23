@@ -147,8 +147,8 @@
         #define DEFAULT_AXIS6_MAX_TRAVEL DEFAULT_AXIS5_MAX_TRAVEL
       #endif
     #endif
-    #define DEFAULT_SPINDLE_RPM_MAX 12000 // rpm
-    #define DEFAULT_SPINDLE_RPM_MIN 550.0 // rpm
+    #define DEFAULT_SPINDLE_RPM_MAX 1000 // rpm
+    #define DEFAULT_SPINDLE_RPM_MIN 0.0 // rpm
     #ifdef SEPARATE_SPINDLE_LASER_PIN
       #define DEFAULT_LASER_MAX 100
       #define DEFAULT_LASER_MIN 1

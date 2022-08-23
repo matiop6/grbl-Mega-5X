@@ -360,6 +360,12 @@
     #define SPINDLE_PWM_PORT  PORTH
     #define SPINDLE_PWM_BIT   5 // MEGA2560 Digital Pin 8
 
+    // Define torch on plasma output pins.
+    #define TORCH_ON_DDR   DDRH
+    #define TORCH_ON_PORT  PORTH
+    #define TORCH_ON_BIT   5 // MEGA2560 Digital Pin 8 
+
+    
   #elif defined (SPINDLE_PWM_ON_D6)
 
     // Set Timer up to use TIMER4C which is attached to Digital Pin 6 - Ramps Servo 2
