@@ -110,6 +110,9 @@ void spindle_stop()
   #ifdef SEPARATE_SPINDLE_LASER_PIN
     }
   #endif
+  jog_z_down = false;
+  jog_z_up = false;
+  plan_sync_position(); //Update planner for THC offset!
 }
 
 

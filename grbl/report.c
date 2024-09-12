@@ -31,6 +31,7 @@
 #include <stdarg.h>
 
 static uint8_t report_grbl_settings_running;
+volatile bool machine_in_motion;
 
 // Internal report utilities to reduce flash with repetitive tasks turned into functions.
 void report_util_setting_prefix(uint8_t n) { serial_write('$'); print_uint8_base10(n); serial_write('='); }
@@ -188,7 +189,9 @@ void report_status_message(uint8_t status_code)
 {
   switch(status_code) {
     case STATUS_OK: // STATUS_OK
-      printPgmString(PSTR("ok\r\n")); break;
+      //printPgmString(PSTR("ok_to_send\n\r"));
+      serial_write('>');
+      break; //Instead of writing 4 charactors "ok\n\r", lets just write on and pick it off the line concatination string to lower the chances of the ok protocal breaking down mid cut
     default:
       printPgmString(PSTR("error:"));
       print_uint8_base10(status_code);
@@ -613,6 +616,80 @@ void report_echo_line_received(char *line)
  // requires as it minimizes the computational overhead and allows grbl to keep running smoothly,
  // especially during g-code programs with fast, short line segments and high frequency reports (5-20Hz).
 void report_realtime_status()
+{
+  int32_t current_position[N_AXIS]; // Copy current state of the system position variable
+  memcpy(current_position,sys_position,sizeof(sys_position));
+  float print_position[N_AXIS];
+  system_convert_array_steps_to_mpos(print_position,current_position);
+
+  printPgmString(PSTR(" { "));
+  switch (sys.state) {
+    case STATE_IDLE: printPgmString(PSTR("\"STATUS\": \"Idle\"")); break;
+    case STATE_CYCLE: printPgmString(PSTR("\"STATUS\": \"Run\"")); break;
+    case STATE_JOG: printPgmString(PSTR("\"STATUS\": \"Jog\"")); break;
+    case STATE_HOLD: printPgmString(PSTR("\"STATUS\": \"Hold\"")); break;
+    default: printPgmString(PSTR("\"STATUS\": \"Unknown\"")); break;
+  }
+  printPgmString(PSTR(", \"MCS\": { \"x\": "));
+  printFloat_CoordValue(print_position[0]);
+  printPgmString(PSTR(",\"y\": "));
+  printFloat_CoordValue(print_position[1]);
+  printPgmString(PSTR(",\"z\": "));
+  printFloat_CoordValue(print_position[2]);
+
+  float wco[N_AXIS];
+  for (uint8_t idx=0; idx< N_AXIS; idx++) {
+      // Apply work coordinate offsets and tool length offset to current position.
+      wco[idx] = gc_state.coord_system[idx]+gc_state.coord_offset[idx];
+      if (idx == TOOL_LENGTH_OFFSET_AXIS) { wco[idx] += gc_state.tool_length_offset; }
+      print_position[idx] -= wco[idx];
+    }
+  printPgmString(PSTR(" }, \"WCS\": { \"x\": "));
+  printFloat_CoordValue(print_position[0]);
+  printPgmString(PSTR(",\"y\": "));
+  printFloat_CoordValue(print_position[1]);
+  printPgmString(PSTR(",\"z\": "));
+  printFloat_CoordValue(print_position[2]);
+
+  printPgmString(PSTR(" }, \"FEED\": "));
+  printFloat_RateValue(st_get_realtime_rate());
+  printPgmString(PSTR(", \"ADC\": "));
+  print_uint32_base10((uint16_t)analogVal);
+  printPgmString(PSTR(", \"IN_MOTION\": "));
+  if (machine_in_motion == true)
+  {
+    printPgmString(PSTR("true"));
+  }
+  else
+  {
+    printPgmString(PSTR("false"));
+  }
+  printPgmString(PSTR(", \"ARC_OK\": "));
+  if(ARC_OK_PIN & (1<<ARC_OK_BIT))
+  {
+    printPgmString(PSTR("true"));
+  }
+  else
+  {
+    printPgmString(PSTR("false"));
+  }
+  printPgmString(PSTR(" }"));
+  report_util_line_feed();
+  if(PROBE_PIN & (1<<PROBE_BIT)) //We are crashing torch into work piece! Report it!
+  {
+    //Do nothing
+  }
+  else
+  {
+    if (machine_in_motion == true)
+    {
+      printPgmString(PSTR("[CRASH]"));
+      report_util_line_feed();
+    }
+  }
+  
+}
+void report_realtime_status_orig()
 {
   uint8_t idx;
   int32_t current_position[N_AXIS]; // Copy current state of the system position variable

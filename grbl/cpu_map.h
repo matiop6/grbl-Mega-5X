@@ -74,6 +74,12 @@
   #define STEP_PORT(i) _STEP_PORT(i)
   #define STEP_PIN(i) _PIN(STEP_PORT_##i)
 
+  #define ARC_OK_DDR DDRE
+  #define ARC_OK_PORT PORTE
+  #define ARC_OK_BIT 4
+  #define ARC_OK_PIN PINE
+  
+
   // Define step direction output pins.
   #define DIRECTION_PORT_0 F
   #define DIRECTION_PORT_1 F
@@ -254,16 +260,16 @@
   #define PROBE_DDR       DDRK
   #define PROBE_PIN       PINK
   #define PROBE_PORT      PORTK
-  #define PROBE_BIT       7  // MEGA2560 Analog Pin 15
+  #define PROBE_BIT       6  // MEGA2560 Analog Pin 14
   #define PROBE_MASK      (1<<PROBE_BIT)
 
   #ifdef USE_ANALOG_INPUT
     // Define Analog input
-    #define ANALOG_INPUT_DDR_0   DDRK
-    #define ANALOG_INPUT_PIN_0   PINK
-    #define ANALOG_INPUT_PORT_0  PORTK
-    #define ANALOG_INPUT_BIT_0   6 // MEGA2560 Analog Pin 14
-    #define ANALOG_INPUT_MASK_0  (1<<ANALOG_INPUT_BIT_0)
+//     #define ANALOG_INPUT_DDR_0   DDRK
+//     #define ANALOG_INPUT_PIN_0   PINK
+//     #define ANALOG_INPUT_PORT_0  PORTK
+//     #define ANALOG_INPUT_BIT_0   6 // MEGA2560 Analog Pin 14
+//     #define ANALOG_INPUT_MASK_0  (1<<ANALOG_INPUT_BIT_0)
     #define ANALOG_INPUT_DDR_1   DDRK
     #define ANALOG_INPUT_PIN_1   PINK
     #define ANALOG_INPUT_PORT_1  PORTK
@@ -354,6 +360,12 @@
     #define SPINDLE_PWM_PORT  PORTH
     #define SPINDLE_PWM_BIT   5 // MEGA2560 Digital Pin 8
 
+    // Define torch on plasma output pins.
+    #define TORCH_ON_DDR   DDRH
+    #define TORCH_ON_PORT  PORTH
+    #define TORCH_ON_BIT   5 // MEGA2560 Digital Pin 8 
+
+    
   #elif defined (SPINDLE_PWM_ON_D6)
 
     // Set Timer up to use TIMER4C which is attached to Digital Pin 6 - Ramps Servo 2
